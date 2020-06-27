@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin
+        id="ndtech-magicdraw-main-plugin"
+        name="ndtech MagicDraw Plugin"
+        version="0"
+        provider-name="ndtech"
+        class="com.ndtech.magicdraw.MainPlugin">
+
+    <requires>
+        <api version="1.2"/>
+    </requires>
+
+    <runtime>
+        <library name="ndtech-magicdraw.jar"/>
+    </runtime>
+</plugin>
