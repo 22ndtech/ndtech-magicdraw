@@ -1,0 +1,5 @@
+DocumentTitle = '$DocumentTitle'
+Purpose = '$Purpose'
+#foreach($package in $Package)
+Package Name: $package.name
+#end##foreach $item
