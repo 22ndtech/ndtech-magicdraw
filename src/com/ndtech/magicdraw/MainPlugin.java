@@ -3,26 +3,57 @@ package com.ndtech.magicdraw;
 // base magicdraw imports
 import com.nomagic.magicdraw.core.Application;
 import com.nomagic.magicdraw.plugins.Plugin;
-
+import com.nomagic.magicdraw.plugins.ResourceDependentPlugin;
+import com.nomagic.magicdraw.ui.dialogs.MDDialogParentProvider;
+import com.nomagic.magicdraw.uml.Finder;
+import com.nomagic.uml2.ext.magicdraw.classes.mdkernel.Element;
+import com.nomagic.uml2.ext.magicdraw.classes.mdkernel.Property;
+import com.nomagic.uml2.ext.magicdraw.mdprofiles.Profile;
+import com.nomagic.uml2.impl.ElementsFactory;
 // project imports
 import com.nomagic.magicdraw.core.Project;
+import com.nomagic.magicdraw.core.ProjectUtilities;
+import com.nomagic.magicdraw.core.project.ProjectDescriptor;
+import com.nomagic.magicdraw.core.project.ProjectDescriptorsFactory;
 import com.nomagic.magicdraw.core.project.ProjectEventListenerAdapter;
-
+import com.nomagic.magicdraw.core.project.ProjectsManager;
 // idle job imports
 import com.nomagic.magicdraw.job.Job;
+import com.nomagic.magicdraw.openapi.uml.ModelElementsManager;
+import com.nomagic.magicdraw.openapi.uml.SessionManager;
 import com.nomagic.magicdraw.job.IdleJobService;
 
 // actions imports
 import com.nomagic.actions.ActionsCategory;
 import com.nomagic.actions.NMAction;
 import com.nomagic.magicdraw.actions.ActionsConfiguratorsManager;
+import com.nomagic.uml2.ext.magicdraw.classes.mdkernel.Package;
 
+import java.io.File;
+import java.net.URI;
+import java.util.Collection;
 // base java imports
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-public class MainPlugin extends Plugin
+import javax.swing.JOptionPane;
+
+public class MainPlugin extends Plugin implements ResourceDependentPlugin
 {
+	static String NDTECH_MAGICDRAW_PROFILE_ID = "_19_0_3_40d019c_1597099379798_500902_5145";
+	static String NDTECH_MAGICDRAW_CUSTOMIZATION_PROFILE_ID = "_19_0_3_40d019c_1597100832192_484870_4796";
+	static String NDTECH_MAGICDRAW_PLUGIN_VERSION = "0.0.1";
+	static String NDTECH_MAGIC_DRAW_PLUGIN_NAME = "ndtech-magicdraw-plugin";
+	static String NDTECH_MAGIC_DRAW_CUSTOMIZATION_PROFILE_NAME = "ndtech-magicdraw-profile-customizations";
+	static String NDTECH_MAGICDRAW_PROJECT_CONFIGURATION_NAME = "ndtech-magicdraw-project-configuration";
+	
+	Project m_currentProject = null;
+	Profile m_ndtechMagicDrawProfile = null;
+	Profile m_ndtechMagicDrawCustomizationProfile = null;
+	com.nomagic.uml2.ext.magicdraw.classes.mdkernel.Package m_primaryModelPackage = null;
+	com.nomagic.uml2.ext.magicdraw.classes.mdkernel.Package m_ndtechConfigurationPackage = null;
+	
 	public static boolean m_initialized;
 	// We track jobs by project.
 	private Map<Project, Job> m_projectJobs = new HashMap<>();
@@ -33,16 +64,18 @@ public class MainPlugin extends Plugin
 	@Override
 	public void init()
 	{
-		m_initialized = true;
 //		Application.getInstance().getGUILog().showMessage("com.ndtech.magicdraw.MainPlugin initialized.");
 		Application.getInstance().getGUILog().log("com.ndtech.magicdraw.MainPlugin initialized.");
 		
-		m_addJobAction = getAddJobAction();
-		m_addJobAction.setEnabled(false);
-		m_jobsMenuConfigurator = new MainMenuConfigurator(m_addJobAction, new String());
+//		m_addJobAction = getAddJobAction();
+//		m_addJobAction.setEnabled(false);
+//		m_jobsMenuConfigurator = new MainMenuConfigurator(m_addJobAction, new String());
+//		
+//		ActionsConfiguratorsManager acm = ActionsConfiguratorsManager.getInstance();
+//		acm.addMainMenuConfigurator(m_jobsMenuConfigurator);
 		
-		ActionsConfiguratorsManager acm = ActionsConfiguratorsManager.getInstance();
-		acm.addMainMenuConfigurator(m_jobsMenuConfigurator);
+		addProjectListener();
+		m_initialized = true;
 	}
 	
 	private void addProjectListener() {
@@ -52,28 +85,50 @@ public class MainPlugin extends Plugin
 			public void projectOpened(Project project)
 			{
 				// Enable the menu item to add a new job
-				m_addJobAction.setEnabled(true);
+//				m_addJobAction.setEnabled(true);
+				m_currentProject = Application.getInstance().getProjectsManager().getActiveProject();
+				m_ndtechMagicDrawProfile = (Profile) m_currentProject.getElementByID(NDTECH_MAGICDRAW_PROFILE_ID);
+				m_ndtechMagicDrawCustomizationProfile = (Profile) m_currentProject.getElementByID(NDTECH_MAGICDRAW_CUSTOMIZATION_PROFILE_ID);
+				m_primaryModelPackage = (Package)m_currentProject.getPrimaryModel();
+				m_ndtechConfigurationPackage = Finder.byQualifiedName().find(m_currentProject, NDTECH_MAGICDRAW_PROJECT_CONFIGURATION_NAME);
+
+				if(m_ndtechConfigurationPackage == null) {
+					SessionManager.getInstance().createSession(m_currentProject, NDTECH_MAGICDRAW_PROJECT_CONFIGURATION_NAME);
+					
+					try {
+						ElementsFactory elementsFactory = m_currentProject.getElementsFactory();
+						m_ndtechConfigurationPackage = elementsFactory.createPackageInstance();
+						m_ndtechConfigurationPackage.setName(NDTECH_MAGICDRAW_PROJECT_CONFIGURATION_NAME);
+						m_ndtechConfigurationPackage.setOwner(m_primaryModelPackage);
+						ModelElementsManager.getInstance().addElement(m_primaryModelPackage, m_ndtechConfigurationPackage);;
+					}
+					catch(Exception e) {
+						Application.getInstance().getGUILog().log("com.ndtech.magicdraw.MainPlugin initialized.");
+					}
+					
+					SessionManager.getInstance().closeSession(m_currentProject);
+				}
 			}
 
 			@Override
 			public void projectDeActivated(Project project)
 			{
 				// Disable the menu item to add a new job
-				m_addJobAction.setEnabled(false);
+//				m_addJobAction.setEnabled(false);
 			}
 
 			@Override
 			public void projectActivated(Project project)
 			{
 				// Enable the menu item to add a new job
-				m_addJobAction.setEnabled(true);
+//				m_addJobAction.setEnabled(true);
 			}
 
 			@Override
 			public void projectPreClosed(Project project)
 			{
 				// Disable the menu item to add a new job
-				m_addJobAction.setEnabled(false);
+//				m_addJobAction.setEnabled(false);
 			}
 		});
 	}
@@ -191,5 +246,22 @@ public class MainPlugin extends Plugin
 	public boolean isSupported()
 	{
 		return true;
+	}
+
+	@Override
+	public String getPluginName() {
+		// TODO Auto-generated method stub
+		return NDTECH_MAGIC_DRAW_PLUGIN_NAME;
+	}
+
+	@Override
+	public String getPluginVersion() {
+		// TODO Auto-generated method stub
+		return NDTECH_MAGICDRAW_PLUGIN_VERSION;
+	}
+
+	@Override
+	public boolean isPluginRequired(Project project) {
+		return ProjectUtilities.findAttachedProjectByName(project, NDTECH_MAGIC_DRAW_CUSTOMIZATION_PROFILE_NAME) != null;
 	}
 }
